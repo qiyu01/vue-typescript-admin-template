@@ -1,5 +1,5 @@
 import { VuexModule, Module, Action, Mutation, getModule } from 'vuex-module-decorators'
-import { login, logout, getUserInfo } from '@/api/users'
+import { login, logout, getUserInfo } from '@/api/auth'
 import { getToken, setToken, removeToken } from '@/utils/cookies'
 import router, { resetRouter } from '@/router'
 import { PermissionModule } from './permission'
@@ -13,6 +13,9 @@ export interface IUserState {
   introduction: string
   roles: string[]
   email: string
+}
+interface Idata{
+  userName:string
 }
 
 @Module({ dynamic: true, store, name: 'user' })
@@ -55,12 +58,12 @@ class User extends VuexModule implements IUserState {
   }
 
   @Action
-  public async Login(userInfo: { username: string, password: string}) {
-    let { username, password } = userInfo
-    username = username.trim()
-    const { data } = await login({ username, password })
-    setToken(data.accessToken)
-    this.SET_TOKEN(data.accessToken)
+  public async Login(userInfo: { userAccount:string, password:string, identification:string, rememberMe:string}) {
+    let { userAccount, password,identification,rememberMe } = userInfo
+    userAccount = userAccount.trim()
+    await login({ userAccount, password,identification,rememberMe })
+    setToken("LOGIN")
+    this.SET_TOKEN("LOGIN")
   }
 
   @Action
@@ -72,23 +75,36 @@ class User extends VuexModule implements IUserState {
 
   @Action
   public async GetUserInfo() {
-    if (this.token === '') {
-      throw Error('GetUserInfo: token is undefined!')
-    }
-    const { data } = await getUserInfo({ /* Your params here */ })
+    const {data}= await getUserInfo()
+    console.log(data)
+    
     if (!data) {
-      throw Error('Verification failed, please Login again.')
+      throw Error('获取用户信息失败，请重新登录!')
+    }else{
+      this.SET_NAME(data.userName)
+    this.SET_AVATAR("111")
+    this.SET_INTRODUCTION("222")
+    this.SET_EMAIL("333")
+    this.SET_ROLES(["admin"]);
     }
-    const { roles, name, avatar, introduction, email } = data.user
-    // roles must be a non-empty array
-    if (!roles || roles.length <= 0) {
-      throw Error('GetUserInfo: roles must be a non-null array!')
-    }
-    this.SET_ROLES(roles)
-    this.SET_NAME(name)
-    this.SET_AVATAR(avatar)
-    this.SET_INTRODUCTION(introduction)
-    this.SET_EMAIL(email)
+    // if (this.token === '') {
+    //   throw Error('GetUserInfo: token is undefined!')
+    // }
+    // const { data } = await getUserInfo()
+    // if (!data) {
+    //   throw Error('Verification failed, please Login again.')
+    // }
+    // const { roles, name, avatar, introduction, email } = data.user
+    // // roles must be a non-empty array
+    // if (!roles || roles.length <= 0) {
+    //   throw Error('GetUserInfo: roles must be a non-null array!')
+    // }
+    // this.SET_ROLES(roles)
+    this.SET_NAME("毛超")
+    this.SET_AVATAR("111")
+    this.SET_INTRODUCTION("222")
+    this.SET_EMAIL("333")
+    this.SET_ROLES(["admin"]);
   }
 
   @Action

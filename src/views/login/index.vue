@@ -12,7 +12,7 @@
         <h3 class="title">
           {{ $t('login.title') }}
         </h3>
-        <lang-select class="set-language" />
+        <!-- <lang-select class="set-language" /> -->
       </div>
 
       <el-form-item prop="username">
@@ -21,7 +21,7 @@
         </span>
         <el-input
           ref="username"
-          v-model="loginForm.username"
+          v-model="loginForm.userAccount"
           :placeholder="$t('login.username')"
           name="username"
           type="text"
@@ -62,6 +62,23 @@
         </el-form-item>
       </el-tooltip>
 
+      <div class="identification-box">
+            <el-form-item prop="identification" class="identification-form-item">
+              <el-input
+                v-model="loginForm.identification"
+                type="text"
+                name="text"
+                auto-complete="off"
+                placeholder="验证码"
+                maxlength="4"
+                @keyup.enter.native="handleLogin"
+              />
+            </el-form-item>
+            <el-form-item class="identification-graph">
+              <img :src="'/we-shop-mgmt/yxstore/admin/auth/captcha?t=' + tRandom" @click="changeGraph">
+            </el-form-item>
+      </div>
+
       <el-button
         :loading="loading"
         type="primary"
@@ -70,37 +87,7 @@
       >
         {{ $t('login.logIn') }}
       </el-button>
-
-      <div style="position:relative">
-        <div class="tips">
-          <span>{{ $t('login.username') }} : admin </span>
-          <span>{{ $t('login.password') }} : {{ $t('login.any') }} </span>
-        </div>
-        <div class="tips">
-          <span>{{ $t('login.username') }} : editor </span>
-          <span>{{ $t('login.password') }} : {{ $t('login.any') }} </span>
-        </div>
-
-        <el-button
-          class="thirdparty-button"
-          type="primary"
-          @click="showDialog=true"
-        >
-          {{ $t('login.thirdparty') }}
-        </el-button>
-      </div>
     </el-form>
-
-    <el-dialog
-      :title="$t('login.thirdparty')"
-      :visible.sync="showDialog"
-    >
-      {{ $t('login.thirdpartyTips') }}
-      <br>
-      <br>
-      <br>
-      <social-sign />
-    </el-dialog>
   </div>
 </template>
 
@@ -110,42 +97,47 @@ import { Route } from 'vue-router'
 import { Dictionary } from 'vue-router/types/router'
 import { Form as ElForm, Input } from 'element-ui'
 import { UserModule } from '@/store/modules/user'
-import { isValidUsername } from '@/utils/validate'
-import LangSelect from '@/components/LangSelect/index.vue'
-import SocialSign from './components/SocialSignin.vue'
+// import { isValidUsername } from '@/utils/validate'
 
 @Component({
-  name: 'Login',
-  components: {
-    LangSelect,
-    SocialSign
-  }
+  name: 'Login'
 })
 export default class extends Vue {
   private validateUsername = (rule: any, value: string, callback: Function) => {
-    if (!isValidUsername(value)) {
-      callback(new Error('Please enter the correct user name'))
+    if (value.trim() === '') {
+      callback(new Error('请输入用户名'))
     } else {
       callback()
     }
   }
 
   private validatePassword = (rule: any, value: string, callback: Function) => {
-    if (value.length < 6) {
-      callback(new Error('The password can not be less than 6 digits'))
+    if (value.trim() === '') {
+      callback(new Error('请输入密码'))
+    } else {
+      callback()
+    }
+  }
+
+  private validateIdentification = (rule:any, value:string, callback:Function) => {
+    if (value.trim() === '') {
+      callback(new Error('请输入验证码'))
     } else {
       callback()
     }
   }
 
   private loginForm = {
-    username: 'admin',
-    password: '111111'
+    userAccount: 'maochao666',
+    password: 'maochao666666',
+    identification: '',
+    rememberMe: 'on'
   }
 
   private loginRules = {
-    username: [{ validator: this.validateUsername, trigger: 'blur' }],
-    password: [{ validator: this.validatePassword, trigger: 'blur' }]
+    userAccount: [{ validator: this.validateUsername, trigger: 'blur' }],
+    password: [{ validator: this.validatePassword, trigger: 'blur' }],
+    identification: [{ required: true, trigger: 'blur', validator: this.validateIdentification }]
   }
 
   private passwordType = 'password'
@@ -154,6 +146,7 @@ export default class extends Vue {
   private capsTooltip = false
   private redirect?: string
   private otherQuery: Dictionary<string> = {}
+  private tRandom = Math.random();
 
   @Watch('$route', { immediate: true })
   private onRouteChange(route: Route) {
@@ -167,7 +160,7 @@ export default class extends Vue {
   }
 
   mounted() {
-    if (this.loginForm.username === '') {
+    if (this.loginForm.userAccount === '') {
       (this.$refs.username as Input).focus()
     } else if (this.loginForm.password === '') {
       (this.$refs.password as Input).focus()
@@ -219,6 +212,11 @@ export default class extends Vue {
       return acc
     }, {} as Dictionary<string>)
   }
+
+  private changeGraph(): void {
+    // 修改验证码
+    this.tRandom = Math.random()
+  }
 }
 </script>
 
@@ -259,6 +257,25 @@ export default class extends Vue {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 5px;
     color: #454545;
+  }
+
+  .identification-box{
+        display: flex;
+        justify-content: space-between;
+        .identification-form-item{
+          width: 200px;
+          height: 47px;
+        }
+
+        .identification-graph{
+          width: 220px;
+          height: 47px;
+
+        img{
+            width: 100%;
+            height: 45px;
+        }
+    }
   }
 }
 </style>

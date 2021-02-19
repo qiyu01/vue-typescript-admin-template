@@ -6,7 +6,7 @@ const path = require('path')
 // For example, on Mac: sudo npm run / sudo yarn
 const devServerPort = 9527 // TODO: get this variable from setting.ts
 const mockServerPort = 9528 // TODO: get this variable from setting.ts
-const name = 'Vue Typescript Admin' // TODO: get this variable from setting.ts
+const name = '邻药优选后台' // TODO: get this variable from setting.ts
 
 module.exports = {
   publicPath: process.env.NODE_ENV === 'production' ? '/vue-typescript-admin-template/' : '/',
@@ -23,15 +23,20 @@ module.exports = {
     proxy: {
       // change xxx-api/login => /mock-api/v1/login
       // detail: https://cli.vuejs.org/config/#devserver-proxy
-      [process.env.VUE_APP_BASE_API]: {
-        target: `http://127.0.0.1:${mockServerPort}/mock-api/v1`,
-        changeOrigin: true, // needed for virtual hosted sites
-        ws: true, // proxy websockets
-        pathRewrite: {
-          ['^' + process.env.VUE_APP_BASE_API]: ''
-        }
+      '/we-shop-mgmt': {
+        target: 'http://test.ysbang.cn/',
+        changeOrigin: true // needed for virtual hosted sites
+        // ws: true // proxy websockets
+        // pathRewrite: {
+        //   ['^' + process.env.VUE_APP_BASE_API]: ''
+        // }
       }
     }
+  },
+  configureWebpack: {
+    // provide the app's title in webpack's name field, so that
+    // it can be accessed in index.html to inject the correct title.
+    name: name
   },
   pwa: {
     name: name,

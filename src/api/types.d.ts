@@ -42,3 +42,9 @@ export interface IUserData {
   introduction: string
   roles: string[]
 }
+
+export interface IDefaultParams {
+  platform: string
+  version:string
+  ua:string
+}
