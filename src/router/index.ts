@@ -5,10 +5,7 @@ import VueRouter, { RouteConfig } from 'vue-router'
 import Layout from '@/layout/index.vue'
 
 /* Router modules */
-import componentsRouter from './modules/components'
-import chartsRouter from './modules/charts'
-import tableRouter from './modules/table'
-import nestedRouter from './modules/nested'
+import finance from './modules/finance'
 
 Vue.use(VueRouter)
 
@@ -93,18 +90,18 @@ export const constantRoutes: RouteConfig[] = [
     name: 'ProductManage',
     meta: { title: '商品管理', icon: 'tree',alwaysShow: true },
     children: [
-      {
-        path: 'productList',
-        name: 'ProductList',
-        component: () => import('@/views/home/index.vue'),
-        meta: { title: '商品列表' }
-      },
-      {
-        path: 'productList1',
-        name: 'ProductList1',
-        component: () => import('@/views/home/index.vue'),
-        meta: { title: '团购活动' }
-      },
+      // {
+      //   path: 'productList',
+      //   name: 'ProductList',
+      //   component: () => import('@/views/home/index.vue'),
+      //   meta: { title: '商品列表' }
+      // },
+      // {
+      //   path: 'productList1',
+      //   name: 'ProductList1',
+      //   component: () => import('@/views/home/index.vue'),
+      //   meta: { title: '团购活动' }
+      // },
       {
         path: 'storeActivity',
         name: 'StoreActivity',
@@ -138,7 +135,8 @@ export const constantRoutes: RouteConfig[] = [
         }
       }
     ]
-  }
+  },
+  finance
 ]
 
 /**
