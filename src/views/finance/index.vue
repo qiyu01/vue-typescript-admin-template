@@ -44,6 +44,36 @@
         </div>
       </div>
     </div>
+    <div class="finance-store">
+      <div class="title">
+        店铺列表
+      </div>
+      <div class="filter">
+        <el-form inline size="medium">
+          <el-form-item label="店铺">
+            <el-select v-model="form.selectStoreId" class="store-select" filterable placeholder="请选择">
+              <el-option
+                v-for="item in shops"
+                :key="item.yxStoreId"
+                :label="item.yxStoreName"
+                :value="item.yxStoreId"
+              >
+                {{
+                  item.yxStoreName
+                }}</el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="店长">
+            <el-input v-model="form.managerInfo" class="storeID" placeholder="店长/手机号" size="medium" clearable @keyup.enter.native="handleSearch" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" size="medium" @click="handleSearch">搜索</el-button>
+            <el-button size="medium" :loading="isDownloading" @click="downloadExcel">下载对账信息</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+      <store-list v-loading="storeLoading" :data="data" :total="total" :page="page" :page-size="pageSize" @sizechange="sizeChange" @pagechange="pageChange" />
+    </div>
   </div>
 </template>
 
@@ -56,13 +86,24 @@ import ResizeMixin from '@/components/Charts/mixins/resize'
 import { Component, Watch, Vue } from 'vue-property-decorator'
 import { UserModule } from '@/store/modules/user'
 import Cards from './components/Cards.vue'
-import { getTrendChartInfo } from '@/api/finance'
+import StoreList from './components/StoreList.vue'
+import { getTrendChartInfo, getFinanceSummaryInfo, getYxStoreFinanceInfo } from '@/api/finance'
+import { Finance } from '@/api/apiConfig'
+import { getIdNameList } from '@/api/shop'
+import { getToken } from '@/utils/cookies'
+import { downloadFileByAjax } from '@/utils/request'
 // import EditorDashboard from "./editor/index.vue";
 
 export interface Queryparams {
   type?: number
   endDateTime: string
   [x: string]: any // 动态添加属性
+}
+export interface Storeparams {
+  pageNo: number
+  pageSize: number
+  managerInfo?:string
+  selectStoreId?:string
 }
 let _minTime: any = null
 let _maxTime: any = null
@@ -78,7 +119,8 @@ const animationDuration = 6000
 @Component({
   name: 'Dashboard',
   components: {
-    Cards
+    Cards,
+    StoreList
   }
 })
 export default class extends mixins(ResizeMixin) {
@@ -286,14 +328,29 @@ export default class extends mixins(ResizeMixin) {
     ]
   };
 
+  private form={
+    selectStoreId: '',
+    managerInfo: ''
+  }
+
+  private isDownloading=false
+  private shops:any[]=[]
+  private data=[]
+  private total=0
+  private page=1
+  private pageSize=10
+  private storeLoading=false
+
   //   get roles() {
   //     return UserModule.roles;
   //   }
 
   mounted() {
     // console.log(this.$el as HTMLDivElement);
-
+    this.getAllFinance()
     this.initChart()
+    this.getShops()
+    this.getShopFinance()
   }
 
   beforeDestroy() {
@@ -302,6 +359,21 @@ export default class extends mixins(ResizeMixin) {
     }
     this.chart.dispose()
     this.chart = null
+  }
+
+  private async getAllFinance() { // 获取总的财务信息
+    const { data } = await getFinanceSummaryInfo()
+    if (data) {
+      this.cardList[0].sum = data.turnover ? data.turnover : '00.00'
+      this.cardList[1].sum = data.withdrawal ? data.withdrawal : '00.00'
+      this.cardList[2].sum = data.noWithdrawal ? data.noWithdrawal : '00.00'
+      this.cardList[3].sum = data.platformAllowance ? data.platformAllowance : '00.00'
+      this.cardList[4].sum = data.storeAllowance ? data.storeAllowance : '00.00'
+      this.cardList[5].sum = data.fee ? data.fee : '00.00'
+      this.cardList[6].sum = data.settled ? data.settled : '00.00'
+      this.cardList[7].sum = data.unSettled ? data.unSettled : '00.00'
+    }
+    // console.log(data)
   }
 
   private rangeChange(label: string) {
@@ -505,12 +577,131 @@ export default class extends mixins(ResizeMixin) {
       this.chart.setOption(options as EChartOption)
     }
   }
+
+  // 获取筛选店铺列表
+  private async getShops() {
+    try {
+      const { data } = await getIdNameList()
+      const list = [{
+        yxStoreId: 0,
+        yxStoreName: '全部'
+      }]
+      this.shops = list.concat(data || [])
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  private async getShopFinance(params?:any) {
+    this.storeLoading = true
+    var obj = {
+      pageNo: 1,
+      pageSize: this.pageSize
+    }
+    if (params) {
+      Object.assign(obj, params)
+    }
+    const { data } = await getYxStoreFinanceInfo(obj)
+    if (data) {
+      this.data = data.results
+      this.total = data.totalRecord
+      this.page = data.pageNum
+      this.storeLoading = false
+    } else {
+      this.storeLoading = false
+    }
+  }
+
+  private handleSearch() {
+    var params:Storeparams = {
+      pageNo: 1,
+      pageSize: this.pageSize
+    }
+    if (this.form.managerInfo) {
+      params.managerInfo = this.form.managerInfo
+    }
+    if (this.form.selectStoreId) {
+      params.selectStoreId = this.form.selectStoreId
+    }
+    this.getShopFinance(params)
+  }
+
+  private sizeChange(size:number) {
+    this.pageSize = size
+    this.page = 1
+    var params:Storeparams = {
+      pageNo: 1,
+      pageSize: size
+    }
+    if (this.form.managerInfo) {
+      params.managerInfo = this.form.managerInfo
+    }
+    if (this.form.selectStoreId) {
+      params.selectStoreId = this.form.selectStoreId
+    }
+    this.getShopFinance(params)
+  }
+
+  private pageChange(page:number) {
+    this.page = page
+    var params:Storeparams = {
+      pageNo: page,
+      pageSize: this.pageSize
+    }
+    if (this.form.managerInfo) {
+      params.managerInfo = this.form.managerInfo
+    }
+    if (this.form.selectStoreId) {
+      params.selectStoreId = this.form.selectStoreId
+    }
+    this.getShopFinance(params)
+  }
+
+  private async downloadExcel() {
+    if (this.isDownloading) return
+    const token = getToken()
+    var downloadUrl =
+        Finance.exportYxStoreFinanceCheckInfo +
+        '?token=' +
+        token +
+        '&pageNo=' +
+        this.page +
+        '&pageSize=' +
+        this.pageSize +
+        '&version=' +
+        'v120'
+    if (this.form.selectStoreId) {
+      downloadUrl += ('&selectStoreId=' +
+        Number(this.form.selectStoreId))
+    }
+    if (this.form.managerInfo) {
+      downloadUrl += ('&managerInfo=' +
+        this.form.managerInfo)
+    }
+    const _this = this
+    this.isDownloading = true
+    downloadFileByAjax({
+      url: downloadUrl,
+      method: 'GET',
+      fileName: '店铺财务信息.xls',
+      emptyCallback: () => {
+        _this.isDownloading = false
+        alert('暂无记录')
+      },
+      completeCallback: () => {
+        _this.isDownloading = false
+      }
+    })
+  }
 }
 </script>
 
 <style lang="scss">
 .finance {
-  background-color: #f0f0f0;
+  // background-color: #f0f0f0;
+  .finance-total{
+  border-radius: 4px;
+  margin-bottom: 8px;
   .tooldate {
     color: #666;
     width: 100px;
@@ -574,5 +765,32 @@ export default class extends mixins(ResizeMixin) {
       height: 500px;
     }
   }
+  }
+
+  .finance-store{
+    background-color: transparent;
+    border-radius: 4px;
+    padding: 0px 0 0px 0;
+    margin-bottom: 8px;
+    .title{
+        font-weight: 700;
+        padding:20px 0 10px 20px;
+        color: #555;
+        background-color: #fff;
+        border-radius: 4px;
+    }
+    .filter{
+      padding: 10px 0 0 20px;
+      background-color: #fff;
+      .store-select{
+        .el-input__inner{
+          width: 150px;
+        }
+      }
+    }
+    .el-pagination__total, .el-pagination__sizes {
+    // float: none;
+}
+}
 }
 </style>

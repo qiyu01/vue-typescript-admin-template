@@ -17,6 +17,12 @@ const finance: RouteConfig = {
       name: 'FinanceTotal',
       component: () => import('@/views/finance/index.vue'),
       meta: { title: '对账首页' }
+    },
+    {
+      path: 'financeDetail',
+      name: 'FinanceDetail',
+      component: () => import('@/views/finance/detail.vue'),
+      meta: { title: '账单信息',hidden:true }
     }
   ]
 }

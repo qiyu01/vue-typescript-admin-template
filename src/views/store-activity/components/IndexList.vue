@@ -228,7 +228,7 @@
 import { Component, Prop, Watch, Emit, Vue } from 'vue-property-decorator'
 
 @Component({
-  name: 'cards'
+  name: 'IndexList'
 })
 export default class extends Vue {
   @Prop({ default: () => [] }) private data!: [];

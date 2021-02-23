@@ -4,6 +4,7 @@ import { Message, MessageBox } from 'element-ui'
 import { IDefaultParams } from '@/api/types'
 import { UserModule } from '@/store/modules/user'
 import {getToken} from './cookies'
+import _ from 'underscore'
 import router from '@/router/index'
 import store from '@/store'
 
@@ -183,3 +184,66 @@ function getBrowserVersion() { // 获取浏览器版本信息
 
 
 export default service
+
+export function downloadFileByAjax(params:any) {
+  // 直接下载文件 文件需要设置Access-Control-Allow-Origin
+  /* params参数
+    *url 请求文件的地址
+    method:请求的方法 GET POST 默认为GET
+    fileName : 输出文件名称
+    fileType : 输出文件的类型this:any,
+    data : post请求需要传的参数  用于send(),
+    callback : 获取本地href后回调
+  */
+  const defaultParams = {
+    method: 'GET'
+  }
+  params = _.extend(defaultParams, params)
+  return new Promise(function(resolve:any, reject:any) {
+    let req:any = null
+    req = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP')
+    req.open(params.method, params.url)
+    if (params.method.toLowerCase() === 'post') {
+      req.setRequestHeader('Content-Type', 'application/json;charset=UTF-8')
+    }
+    req.responseType = 'blob' // 这一句很重要 返回的response是Blob对象,否则是字符串
+    req.onreadystatechange = function() {
+      if (req.status === 200 && req.readyState === 4) {
+        if (params.emptyCallback && req.response.size === 0) { // 如果数据为空，且存在为空时的回调
+          params.emptyCallback()
+          if (params.completeCallback) {
+            params.completeCallback()
+          }
+          return
+        }
+        console.log(params.fileType)
+
+        const blob = new Blob([req.response], { type: params.fileType })
+        const href = window.URL.createObjectURL(blob)
+        if (params.callback) {
+          params.callback(href)
+          resolve()
+        } else {
+          const link = document.createElement('a')
+          link.href = href
+          link.download = params.fileName
+          link.click()
+          resolve()
+        }
+
+        if (params.completeCallback) {
+          params.completeCallback()
+        }
+      } else if (req.readyState === 4) {
+        if (params.completeCallback) {
+          params.completeCallback()
+        }
+      }
+    }
+    if (params.data) {
+      req.send(JSON.stringify(params.data))
+    } else {
+      req.send(null)
+    }
+  })
+}
