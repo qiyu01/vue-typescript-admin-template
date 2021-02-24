@@ -97,6 +97,9 @@ import DetailFilter from './components/DetailFilter.vue'
 import DetailList from './components/detailList.vue'
 
 import { getFinanceSummaryInfo, getYxStoreBillInfo, getYxStoreBillDetailInfo } from '@/api/finance'
+import { Finance } from '@/api/apiConfig'
+import { getToken } from '@/utils/cookies'
+import { downloadFileByAjax } from '@/utils/request'
 
 export interface BillMsgQuery {
   pageNo: number
@@ -109,7 +112,7 @@ export interface DetailForm {
   settleType: number
   sn: string
   unionSn: string
-  time: string
+  time: any[]
   orderStatus: number|string
   orderType: number|string
 }
@@ -171,7 +174,7 @@ export default class extends Vue {
       settleType: 0,
       sn: '',
       unionSn: '',
-      time: '',
+      time: [],
       orderStatus: -1,
       orderType: -1
     },
@@ -179,12 +182,11 @@ export default class extends Vue {
       settleType: 0,
       sn: '',
       unionSn: '',
-      time: '',
+      time: [],
       orderStatus: -1,
       orderType: -1
     },
     type: 0,
-    time: '',
     data: [],
     page: 1,
     pageSize: 10,
@@ -199,7 +201,7 @@ export default class extends Vue {
       settleType: 1,
       sn: '',
       unionSn: '',
-      time: '',
+      time: [],
       orderStatus: -1,
       orderType: -1
     },
@@ -207,12 +209,11 @@ export default class extends Vue {
       settleType: 1,
       sn: '',
       unionSn: '',
-      time: '',
+      time: [],
       orderStatus: -1,
       orderType: -1
     },
     type: 1,
-    time: '',
     data: [],
     page: 1,
     pageSize: 10,
@@ -361,7 +362,7 @@ export default class extends Vue {
     obj.settleType = form.settleType
     if (form.sn) { obj.sn = form.sn }
     if (form.unionSn) { obj.unionSn = form.unionSn }
-    if (form.time) {
+    if (form.time.length > 0) {
       obj.beginDateTime = Math.floor(moment(form.time[0]).valueOf() / 1000)
       obj.endDateTime = Math.floor(moment(form.time[1]).valueOf() / 1000)
     }
@@ -387,32 +388,223 @@ export default class extends Vue {
     }
   }
 
-  private detailSearch() {
-
+  private detailSearch(form:{time:never[], settleType:number}) {
+    var objDeepCopy = function(source:any) {
+      var sourceCopy:any = source instanceof Array ? [] : {}
+      for (var item in source) {
+        sourceCopy[item] = typeof source[item] === 'object' ? objDeepCopy(source[item]) : source[item]
+      }
+      return sourceCopy
+    }
+    if (form.settleType === 0) {
+      this.detailSettled.formCopy = objDeepCopy(form)
+      if (form.time.length > 0) {
+        this.detailSettled.formCopy.time = []
+        this.detailSettled.formCopy.time[0] = form.time[0]
+        this.detailSettled.formCopy.time[1] = form.time[1]
+      } else {
+        this.detailSettled.formCopy.time = []
+      }
+      this.getBillDetail({ pageSize: this.detailSettled.pageSize }, 0)
+    } else if (form.settleType === 1) {
+      this.detailUnsettled.formCopy = objDeepCopy(form)
+      if (form.time.length > 0) {
+        this.detailUnsettled.formCopy.time = []
+        this.detailUnsettled.formCopy.time[0] = form.time[0]
+        this.detailUnsettled.formCopy.time[1] = form.time[1]
+      } else {
+        this.detailUnsettled.formCopy.time = []
+      }
+      this.getBillDetail({ pageSize: this.detailUnsettled.pageSize }, 1)
+    }
   }
 
-  private settledSizeChange() {
-
+  private settledSizeChange(size:number) {
+    var params = {
+      pageSize: size,
+      settleType: 0
+    }
+    this.detailSettled.page = 1
+    this.detailSettled.pageSize = size
+    this.getBillDetail(params, 0)
   }
 
-  private settledPageChange() {
-
+  private settledPageChange(page:number) {
+    var params = {
+      pageNo: page,
+      pageSize: this.detailSettled.pageSize,
+      settleType: 0
+    }
+    this.detailSettled.page = page
+    this.getBillDetail(params, 0)
   }
 
-  private unSettledSizeChange() {
-
+  private unSettledSizeChange(size:number) {
+    var params = {
+      pageSize: size,
+      settleType: 1
+    }
+    this.detailUnsettled.page = 1
+    this.detailUnsettled.pageSize = size
+    this.getBillDetail(params, 1)
   }
 
-  private unSettledPageChange() {
-
+  private unSettledPageChange(page:number) {
+    var params = {
+      pageNo: page,
+      pageSize: this.detailUnsettled.pageSize,
+      settleType: 1
+    }
+    this.detailUnsettled.page = page
+    this.getBillDetail(params, 1)
   }
 
+  // 下载账单信息
   private async downloadMsgExcel() {
-
+    if (this.billMsg.isDownloading) return
+    const token = getToken()
+    var downloadUrl =
+        Finance.exportYxStoreBillInfo +
+        '?token=' +
+        token +
+        '&pageNo=' +
+        this.billMsg.page +
+        '&pageSize=' +
+        this.billMsg.pageSize +
+        '&selectYxStoreId=' +
+        this.storeId +
+        '&version=' +
+        'v120'
+    if (this.billMsg.time.length > 0) {
+      downloadUrl += ('&beginDateTime=' +
+        Math.floor(moment(this.billMsg.time[0]).valueOf() / 1000))
+      downloadUrl += ('&endDateTime=' +
+        Math.floor(moment(this.billMsg.time[1]).valueOf() / 1000))
+    } else {
+      downloadUrl += ('&beginDateTime=' +
+        Math.floor(moment().subtract(1, 'years').valueOf() / 1000))
+      downloadUrl += ('&endDateTime=' +
+        Math.floor(moment().valueOf() / 1000))
+    }
+    const _this = this
+    this.billMsg.isDownloading = true
+    downloadFileByAjax({
+      url: downloadUrl,
+      method: 'GET',
+      fileName: '店铺账单信息.xls',
+      emptyCallback: () => {
+        _this.billMsg.isDownloading = false
+        alert('暂无记录')
+      },
+      completeCallback: () => {
+        _this.billMsg.isDownloading = false
+      }
+    })
   }
 
-  private async downloadDetailExcel() {
-
+  // 下载账单明细
+  // type 0:下载待结算账单信息 1：下载已结算账单信息
+  private async downloadDetailExcel(type:number) {
+    var downloadUrl
+    if (type === 0) {
+      if (this.detailSettled.isDownloading) return
+      const token = getToken()
+      downloadUrl =
+        Finance.exportYxStoreBillDetailInfo +
+        '?token=' +
+        token +
+        '&pageNo=' +
+        this.detailSettled.page +
+        '&pageSize=' +
+        this.detailSettled.pageSize +
+        '&selectYxStoreId=' +
+        this.storeId +
+        '&settleType=' +
+        type +
+        '&version=' +
+        'v120'
+      if (this.detailSettled.form.time.length > 0) {
+        downloadUrl += ('&beginDateTime=' +
+        Math.floor(moment(this.detailSettled.form.time[0]).valueOf() / 1000))
+        downloadUrl += ('&endDateTime=' +
+        Math.floor(moment(this.detailSettled.form.time[1]).valueOf() / 1000))
+      }
+      if (this.detailSettled.form.orderStatus !== -1) {
+        downloadUrl += ('&orderStatus=' + this.detailSettled.form.orderStatus)
+      }
+      if (this.detailSettled.form.orderType) {
+        downloadUrl += ('&orderType=' + this.detailSettled.form.orderType)
+      }
+      if (this.detailSettled.form.sn) {
+        downloadUrl += ('&sn=' + this.detailSettled.form.sn)
+      }
+      if (this.detailSettled.form.unionSn) {
+        downloadUrl += ('&sn=' + this.detailSettled.form.unionSn)
+      }
+      const _this = this
+      this.detailSettled.isDownloading = true
+      downloadFileByAjax({
+        url: downloadUrl,
+        method: 'GET',
+        fileName: '店铺账单明细(待结算).xls',
+        emptyCallback: () => {
+          _this.detailSettled.isDownloading = false
+          alert('暂无记录')
+        },
+        completeCallback: () => {
+          _this.detailSettled.isDownloading = false
+        }
+      })
+    } else if (type === 1) {
+      if (this.detailUnsettled.isDownloading) return
+      const token = getToken()
+      downloadUrl =
+        Finance.exportYxStoreBillDetailInfo +
+        '?token=' +
+        token +
+        '&pageNo=' +
+        this.detailUnsettled.page +
+        '&pageSize=' +
+        this.detailUnsettled.pageSize +
+        '&selectYxStoreId=' +
+        this.storeId +
+        '&settleType=' +
+        type +
+        '&version=' +
+        'v120'
+      if (this.detailUnsettled.form.time.length > 0) {
+        downloadUrl += ('&beginDateTime=' +
+        Math.floor(moment(this.detailUnsettled.form.time[0]).valueOf() / 1000))
+        downloadUrl += ('&endDateTime=' +
+        Math.floor(moment(this.detailUnsettled.form.time[1]).valueOf() / 1000))
+      }
+      if (this.detailUnsettled.form.orderStatus !== -1) {
+        downloadUrl += ('&orderStatus=' + this.detailUnsettled.form.orderStatus)
+      }
+      if (this.detailUnsettled.form.orderType) {
+        downloadUrl += ('&orderType=' + this.detailUnsettled.form.orderType)
+      }
+      if (this.detailUnsettled.form.sn) {
+        downloadUrl += ('&sn=' + this.detailUnsettled.form.sn)
+      }
+      if (this.detailUnsettled.form.unionSn) {
+        downloadUrl += ('&sn=' + this.detailUnsettled.form.unionSn)
+      }
+      const _this = this
+      this.detailUnsettled.isDownloading = true
+      downloadFileByAjax({
+        url: downloadUrl,
+        method: 'GET',
+        fileName: '店铺账单明细(已结算).xls',
+        emptyCallback: () => {
+          _this.detailUnsettled.isDownloading = false
+          alert('暂无记录')
+        },
+        completeCallback: () => {
+          _this.detailUnsettled.isDownloading = false
+        }
+      })
+    }
   }
 }
 </script>
